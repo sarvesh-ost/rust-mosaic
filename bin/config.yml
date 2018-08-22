@@ -1,0 +1,21 @@
+origin:
+  kind: Ethereum
+  rpc:
+    protocol: http
+    host: 127.0.0.1
+    port: '8545'
+  ws:
+    protocol: http
+    host: 127.0.0.1
+    port: '8545'
+auxiliaries:
+  '0x0000000000000000000000000000000000000001':
+    kind: Ethereum
+    rpc:
+      protocol: http
+      host: 127.0.0.1
+      port: '8545'
+    ws:
+      protocol: http
+      host: 127.0.0.1
+      port: '8545'

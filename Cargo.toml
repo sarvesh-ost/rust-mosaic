@@ -7,9 +7,4 @@ authors = ["Martin Schenck <martin@ost.com>"]
 web3 = "0.3.1"
 log = "0.4.3"
 simple_logger = "0.5.0"
-<<<<<<< HEAD
-[dependencies.clap]
-    features = ["yaml"]
-=======
-
->>>>>>> Use the exact version of Crates
+clap = {version = "2.32", features = ["yaml"]}

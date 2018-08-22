@@ -22,6 +22,9 @@
 extern crate log;
 extern crate web3;
 
+#[macro_use]
+extern crate clap;
+
 use blockchain::{Blockchain, Kind};
 use config::Config;
 use std::error::Error;

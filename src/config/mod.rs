@@ -14,8 +14,10 @@
 
 //! This module handles all configuration of this library.
 
+
 use blockchain::types::address::Address;
 use std::env;
+use clap::App;
 
 // Environment variables and their defaults
 const ENV_ORIGIN_ENDPOINT: &str = "MOSAIC_ORIGIN_ADDRESS";
@@ -40,6 +42,10 @@ impl Config {
     /// Reads the configuration from environment variables and creates a new Config from them. In
     /// case an environment variable is not set, a default fallback will be used.
     pub fn new() -> Config {
+
+        let yaml = load_yaml!("/Users/rachin/ost/rust-mosaic/bin/config.yml");
+
+
         let origin_endpoint =
             Self::read_environment_variable(ENV_ORIGIN_ENDPOINT, Some(DEFAULT_ORIGIN_ENDPOINT));
         let auxiliary_endpoint = Self::read_environment_variable(
