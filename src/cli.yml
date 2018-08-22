@@ -1,0 +1,34 @@
+name: rust-mosiac
+version: "1.0"
+author: OpenST
+about: Rust Mosaic Node
+args:
+    - config:
+        long: config
+        value_name: config_file_path
+        help: Sets a custom config file
+        takes_value: true
+    - rpc:
+        long: rpc
+        value_name: rpc
+        help: "Enable the HTTP-RPC server"
+        takes_value: false
+    - rpcaddr:
+        long: rpcaddr
+        value_name: rpcaddr
+        help: "HTTP-RPC server listening interface (default: 'localhost')"
+        takes_value: true
+    - rpcport:
+        long: rpcport
+        value_name: rpcport
+        help: "HTTP-RPC server listening port (default: 8545)"
+        takes_value: true
+subcommands:
+    - test:
+        about: controls testing features
+        version: "1.3"
+        author: Someone E. <someone_else@other.com>
+        args:
+            - debug:
+                short: d
+                help: print debug information

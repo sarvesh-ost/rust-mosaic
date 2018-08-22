@@ -17,10 +17,14 @@ extern crate log;
 extern crate mosaic;
 extern crate simple_logger;
 
+#[macro_use]
+extern crate clap;
+
 use log::Level;
 use mosaic::config::Config;
 use std::env;
 use std::process;
+use clap::App;
 
 const ENV_LOG_LEVEL: &str = "MOSAIC_LOG_LEVEL";
 const DEFAULT_LOG_LEVEL: Level = Level::Info;
@@ -33,8 +37,17 @@ fn main() {
     let config = Config::new();
 
     if let Err(e) = mosaic::run(&config) {
-        error!("Application error: {}", e);
-        process::exit(1);
+       error!("Application error: {}", e);
+       process::exit(1);
+    }
+
+    // The YAML file is found relative to the current file, similar to how modules are found
+    let yaml = load_yaml!("cli.yml");
+    let matches = App::from_yaml(yaml).get_matches();
+
+    // You can check the value provided by positional arguments, or option arguments
+    if let Some(rpcaddr) = matches.value_of("rpcaddr") {
+        println!("Value for output: {}", rpcaddr);
     }
 }
 
