@@ -45,10 +45,8 @@ fn main() {
     let yaml = load_yaml!("cli.yml");
     let matches = App::from_yaml(yaml).get_matches();
 
-    // You can check the value provided by positional arguments, or option arguments
-    if let Some(rpcaddr) = matches.value_of("rpcaddr") {
-        println!("Value for output: {}", rpcaddr);
-    }
+    // TODO:: if rpc is enabled, then rpcaddr and rpcport is mandatory
+    // TODO:: if ws is enabled, then wsaddr and wsport is mandatory
 }
 
 /// Reads the log level from the environment. If it is not set it falls back to
