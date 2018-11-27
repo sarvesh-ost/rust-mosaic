@@ -21,19 +21,25 @@
 extern crate log;
 extern crate ethabi;
 extern crate futures;
+extern crate rlp;
 extern crate rpassword;
+extern crate tiny_keccak;
 extern crate tokio_core;
 extern crate web3;
 
 pub use config::Config;
 use ethereum::Ethereum;
+use reactor::Reactor;
 use std::error::Error;
+use std::sync::Arc;
 
+mod auxiliary;
 pub mod config;
 mod error;
 mod ethereum;
 mod event;
 mod observer;
+mod reactor;
 
 /// Runs a mosaic node with the given configuration.
 /// Prints all accounts of the origin blockchain to std out.
@@ -44,20 +50,26 @@ mod observer;
 pub fn run(config: &Config) -> Result<(), Box<Error>> {
     let mut event_loop =
         tokio_core::reactor::Core::new().expect("Could not initialize tokio event loop");
-    let origin = Ethereum::new(
+    let mut origin = Ethereum::new(
         config.origin_endpoint(),
         config.origin_validator_address(),
         config.origin_polling_interval(),
         Box::new(event_loop.handle()),
     );
-    let auxiliary = Ethereum::new(
+    let mut auxiliary = Ethereum::new(
         config.auxiliary_endpoint(),
         config.auxiliary_validator_address(),
         config.auxiliary_polling_interval(),
         Box::new(event_loop.handle()),
     );
 
-    observer::run(&origin, &auxiliary, &event_loop.handle(), config);
+    Reactor::register(&mut origin, &mut auxiliary, config);
+    observer::run(
+        Arc::new(origin),
+        Arc::new(auxiliary),
+        &event_loop.handle(),
+        config,
+    );
 
     loop {
         event_loop.turn(None);

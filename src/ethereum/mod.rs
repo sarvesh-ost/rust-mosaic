@@ -21,15 +21,17 @@ use futures::prelude::*;
 use rpassword;
 use std::sync::Arc;
 use std::time::Duration;
+use web3::contract::Contract;
 use web3::transports::Http;
 use web3::types::Block as Web3Block;
 use web3::types::{Address, BlockId, BlockNumber, Bytes, FilterBuilder, H160};
 use web3::Web3;
 
-mod types;
+use super::reactor::{React, Reactor};
+
+pub mod types;
 
 /// This struct stores a connection to an Ethereum node.
-#[derive(Clone)]
 pub struct Ethereum {
     web3: Web3<Http>,
     validator: H160,
@@ -40,6 +42,8 @@ pub struct Ethereum {
     polling_interval: Duration,
     /// A handle to the event loop that runs mosaic.
     event_loop: Box<tokio_core::reactor::Handle>,
+    /// List of block reactors. These are notified when any new block is generated.
+    reactors: Vec<Reactor>,
 }
 
 trait IntoBlock {
@@ -79,6 +83,7 @@ impl Ethereum {
             password,
             polling_interval,
             event_loop,
+            reactors: Vec::new(),
         }
     }
 
@@ -225,6 +230,29 @@ impl Ethereum {
         })
     }
 
+    /// Create contract instance
+    ///
+    /// # Arguments
+    ///
+    /// * `contract_address` -  The address of contract.
+    /// * `abi` - ABI of contract.
+    ///
+    /// # Returns
+    ///
+    /// Returns a `contract` instance.
+    pub fn contract_instance(
+        &self,
+        contract_address: Address,
+        abi: &[u8],
+    ) -> Result<Contract<Http>, Error> {
+        Contract::from_json(self.web3.eth(), contract_address, abi).map_err(|error| {
+            Error::new(
+                ErrorKind::NodeError,
+                format!("Was not able to instantiate contract: {}", error),
+            )
+        })
+    }
+
     /// Unlocks the validator account of this ethereum instance using the stored password.
     ///
     /// # Arguments
@@ -246,6 +274,28 @@ impl Ethereum {
                 )
             })
     }
+
+    /// Register a block reactor.
+    ///
+    /// # Arguments
+    ///
+    /// * `reactor` - Any object which implements reactor traits
+    ///
+    pub fn register_reactor(&mut self, reactor: Reactor) {
+        self.reactors.push(reactor);
+    }
+
+    /// Notify all the block observers
+    ///
+    /// # Arguments
+    ///
+    /// * `block` - block to notify
+    ///
+    pub fn notify_reactors(&self, block: &Block) {
+        self.reactors
+            .iter()
+            .for_each(|reactor| reactor.react(block, &self.event_loop));
+    }
 }
 
 impl<TX> IntoBlock for Web3Block<TX> {
@@ -264,20 +314,28 @@ impl<TX> IntoBlock for Web3Block<TX> {
                 }
             },
             parent_hash: self.parent_hash,
+            uncles_hash: self.parent_hash,
+            author: self.author,
             state_root: self.state_root,
             transactions_root: self.transactions_root,
+            receipts_root: self.transactions_root,
+            logs_bloom: self.logs_bloom,
+            total_difficulty: self.total_difficulty,
             number: match self.number {
                 Some(number) => number,
                 None => {
                     return Err(Error::new(
                         ErrorKind::InvalidBlock,
                         "Block has no number".to_string(),
-                    ))
+                    ));
                 }
             },
-            gas_used: self.gas_used,
             gas_limit: self.gas_limit,
+            gas_used: self.gas_used,
             timestamp: self.timestamp,
+            extra_data: self.extra_data.clone(),
+            mix_data: self.transactions_root,
+            nonce: self.difficulty,
             events: vec![],
         })
     }

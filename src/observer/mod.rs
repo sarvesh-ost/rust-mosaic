@@ -18,7 +18,7 @@
 
 use super::error::Error;
 use super::ethereum::{Block, Ethereum};
-use super::event::{self, Event, EventHandler};
+use super::event;
 use super::Config;
 use futures::prelude::*;
 use std::sync::Arc;
@@ -36,19 +36,22 @@ use std::sync::Arc;
 /// * `event_loop` - The reactor's event loop to handle the tasks spawned by this observer.
 /// * `config` - The configuration object of mosaic.
 pub fn run(
-    origin: &Ethereum,
-    auxiliary: &Ethereum,
+    origin: Arc<Ethereum>,
+    auxiliary: Arc<Ethereum>,
     event_loop: &tokio_core::reactor::Handle,
     config: &Config,
 ) {
+    let cloned_origin = Arc::clone(&origin);
+    let cloned_auxiliary = Arc::clone(&auxiliary);
+
     let origin_events = event::origin_event_handler(config);
     let auxiliary_events = event::auxiliary_event_handler(config);
 
     let origin_stream = origin.stream_blocks(Arc::new(origin_events));
     let auxiliary_stream = auxiliary.stream_blocks(Arc::new(auxiliary_events));
 
-    let origin_worker = worker(origin_stream, origin_block_function);
-    let auxiliary_worker = worker(auxiliary_stream, auxiliary_block_function);
+    let origin_worker = worker(origin_stream, origin_block_function, cloned_origin);
+    let auxiliary_worker = worker(auxiliary_stream, auxiliary_block_function, cloned_auxiliary);
 
     event_loop.spawn(origin_worker);
     event_loop.spawn(auxiliary_worker);
@@ -64,9 +67,10 @@ pub fn run(
 fn worker<F>(
     block_stream: impl Stream<Item = Block, Error = Error>,
     block_function: F,
+    block_chain: Arc<Ethereum>,
 ) -> impl Future<Item = (), Error = ()>
 where
-    F: Fn(&Block) -> Result<(), Error>,
+    F: Fn(&Block, &Arc<Ethereum>) -> Result<(), Error>,
 {
     // Using `then` to catch errors. If the errors weren't caught, the stream would terminate after
     // an error. However, we want to continue polling the node for new blocks, even if there was an
@@ -88,7 +92,7 @@ where
 
             // Here we actually call the block function that does the actual work. The rest around
             // it is more or less boilerplate.
-            if let Err(error) = block_function(&block) {
+            if let Err(error) = block_function(&block, &block_chain) {
                 error!("There was an error when processing a block: {}", error);
             }
 
@@ -98,22 +102,24 @@ where
 
 /// origin_block_function implements the actions that should be taken for each block that we observe
 /// on origin.
-fn origin_block_function(block: &Block) -> Result<(), Error> {
+fn origin_block_function(block: &Block, origin: &Arc<Ethereum>) -> Result<(), Error> {
     // `info!`s are just used as an example. The actual logic of how to handle each block will be
     // done here. Should spawn new futures to not block if longer computation.
     info!("Origin Block:     {}", block);
     info!("Origin Events:    {:?}", block.events);
+
+    origin.notify_reactors(&block);
 
     Ok(())
 }
 
 /// origin_block_function implements the actions that should be taken for each block that we observe
 /// on auxiliary.
-fn auxiliary_block_function(block: &Block) -> Result<(), Error> {
+fn auxiliary_block_function(block: &Block, auxiliary: &Arc<Ethereum>) -> Result<(), Error> {
     // `info!`s are just used as an example. The actual logic of how to handle each block will be
     // done here. Should spawn new futures to not block if longer computation.
     info!("Auxiliary Block:     {}", block);
     info!("Auxiliary Events:    {:?}", block.events);
-
+    auxiliary.notify_reactors(&block);
     Ok(())
 }
